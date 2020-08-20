@@ -1,7 +1,4 @@
-.set NUM, 10
-
 	.data
-
 arg_err:
 	.ascii "Please supply one argument\n"
 	ae_len = . - arg_err
@@ -13,7 +10,6 @@ num_err:
 
 	.globl _start
 	.text
-
 _start:
 	# Read argc
 	movq	(%rsp), %rbx
