@@ -3,10 +3,13 @@
 	.data
 
 arg_err:
-	.asciz "Please supply one argument\n"
+	.ascii "Please supply one argument\n"
+	ae_len = . - arg_err
 
 num_err:
-	.asciz "Please supply a valid number > 0\n"
+	.ascii "Please supply a valid number > 0\n"
+	ne_len = . - num_err
+
 
 	.globl _start
 	.text
@@ -18,9 +21,12 @@ _start:
 	je	.argc_good
 
 	# Print error
-	leaq	arg_err, %rdi
-	movq	stderr, %rsi
-	call	fputs
+	movq	$1, %rax # sys_write
+	movq	$2, %rdi # fd 2
+	movq	$arg_err, %rsi
+	movq	$ae_len, %rdx
+	syscall
+
 
 	# Return with code 1
 	movq	$60, %rax
@@ -40,9 +46,11 @@ _start:
 	jnz	.number_good
 	
 	# Print error
-	leaq	num_err, %rdi
-	movq	stderr, %rsi
-	call	fputs
+	movq	$1, %rax # sys_write
+	movq	$2, %rdi # fd 2
+	movq	$num_err, %rsi
+	movq	$ne_len, %rdx
+	syscall
 
 	# Return with code 1
 	movq	$60, %rax
