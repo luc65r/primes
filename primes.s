@@ -11,9 +11,6 @@ num_err:
 	.globl _start
 	.text
 
-print_num:
-	.asciz "%lu\n"
-
 _start:
 	# Read argc
 	movq	(%rsp), %rbx
@@ -34,7 +31,7 @@ _start:
 .argc_good:
 	# Get the number
 	movq	16(%rsp), %rdi
-	movq	$0, %rsi
+	xorq	%rsi, %rsi
 	movq	$10, %rdx
 	call	strtoumax
 	movq	%rax, %r15
@@ -152,19 +149,47 @@ _start:
 	andb	$1, %al
 	jz	.print_loop
 
-	# Print %rbx
-	leaq	print_num, %rdi
-	movq	%rbx, %rsi
-	call	printf
-	jmp	.print_loop
+	xorq	%r12, %r12
+	movq	%rbx, %rax
+.div_loop:
+	# Divide %rax by 10
+	xorq	%rdx, %rdx
+	movq	$10, %rcx
+	divq	%rcx
+	# %rax = %rax / 10
+	# %rdx = %rax % 10
 
+	addb	$0x30, %dl
+	push	%rdx
+	incq	%r12
+
+	test	%rax, %rax
+	jnz	.div_loop
+
+.putc_loop:
+	pop	%rdi
+	decq	%r12
+	andq	$0xFF, %rdi
+	call	putchar
+
+	test	%r12, %r12
+	jnz	.putc_loop
+
+	# Print '\n'
+	movb	$0xA, %dil
+	call	putchar
+
+	jmp	.print_loop
 .end_print:
 
 	movq	%r14, %rdi
 	call	free
 
 .finish:
+	movq	stdout, %rdi
+	call	fflush
+
 	# Return with code 0
 	movq	$60, %rax
-	movq	$0, %rdi
+	xorq	%rdi, %rdi
 	syscall
