@@ -36,7 +36,7 @@ _start:
 	call	strtoumax
 	movq	%rax, %r15
 
-	test	%r15, %r15
+	testq	%r15, %r15
 	jnz	.number_good
 	
 	# Print error
@@ -68,11 +68,18 @@ _start:
 	shrq	$3, %rdx
 	call	memset
 
+	push	%r15
+	fildq	(%rsp)
+	fsqrt
+	fistpq	(%rsp)
+	pop	%r13
+	# %r13 = sqrt(%r15)
+
 	# Eliminate all non primes
 	movq	$1, %rbx
 .elim_loop:
 	addq	$2, %rbx
-	cmpq	%r15, %rbx
+	cmpq	%r13, %rbx
 	ja	.end_elim
 
 	movq	%rbx, %rax
@@ -153,17 +160,22 @@ _start:
 	movq	%rbx, %rax
 .div_loop:
 	# Divide %rax by 10
-	xorq	%rdx, %rdx
-	movq	$10, %rcx
-	divq	%rcx
+	movq	%rax, %rdi
+	movabsq	$-3689348814741910323, %rdx
+	mulq	%rdx
+	shrq	$3, %rdx
+	leaq	(%rdx, %rdx, 4), %r11
+	movq	%rdx, %rax
+	addq	%r11, %r11
+	subq	%r11, %rdi
 	# %rax = %rax / 10
-	# %rdx = %rax % 10
+	# %rdi = %rai % 10
 
-	addb	$0x30, %dl
-	push	%rdx
+	addq	$0x30, %rdi
+	push	%rdi
 	incq	%r12
 
-	test	%rax, %rax
+	testq	%rax, %rax
 	jnz	.div_loop
 
 .putc_loop:
@@ -172,7 +184,7 @@ _start:
 	andq	$0xFF, %rdi
 	call	putchar
 
-	test	%r12, %r12
+	testq	%r12, %r12
 	jnz	.putc_loop
 
 	# Print '\n'
