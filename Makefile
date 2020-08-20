@@ -5,5 +5,3 @@ primes: primes.o
 
 %.o: %.s Makefile
 	as --64 -o $@ $<
-
-.PHONY: primes all
