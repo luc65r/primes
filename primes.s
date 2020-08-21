@@ -1,11 +1,26 @@
+.set BUF_LEN, 2000000 # 2 MB
+
 	.data
 arg_err:
 	.ascii "Please supply one argument\n"
-	ae_len = . - arg_err
+	.set ae_len, . - arg_err
 
 num_err:
 	.ascii "Please supply a valid number > 0\n"
-	ne_len = . - num_err
+	.set ne_len, . - num_err
+
+
+	#.bss
+num:
+	.quad 0
+sqrt_num:
+	.quad 0
+
+primes:
+	.quad 0
+
+char_buf:
+	.fill BUF_LEN
 
 
 	.globl _start
@@ -36,9 +51,9 @@ _start:
 	xorq	%rsi, %rsi
 	movq	$10, %rdx
 	call	strtoumax
-	movq	%rax, %r15
+	movq	%rax, num
 
-	testq	%r15, %r15
+	testq	%rax, %rax
 	jnz	.number_good
 	
 	# Print error
@@ -54,41 +69,48 @@ _start:
 	syscall
 
 .number_good:
-	cmpq	$1, %r15
+	cmpq	$1, num
 	je	.finish
 
 	# Allocate n / 8 + 1 bytes of memory
-	movq	%r15, %rdi
-	shrq	$3, %rdi
-	incq	%rdi
-	call	malloc
-	movq	%rax, %r14
+	movq	$9, %rax # sys_mmap
+	xorq	%rdi, %rdi # addr = 0
+	movq	num, %rsi
+	shrq	$3, %rsi
+	incq	%rsi # len = n / 8 + 1
+	movq	$3, %rdx # prot = read | write
+	movq	$0x22, %r10 # flags = private | anonymous
+	movq	$-1, %r8 # fd = -1
+	xorq	%r9, %r9 # offset = 0
+	syscall
+	movq	%rax, primes
+	movq	%rax, %r15
 
-	movb	$0b00110101, (%r14)
-	movq	%r14, %rdi
+	movq	primes, %rdi
+	movb	$0b00110101, (%rdi)
 	incq	%rdi
 	movl	$0b01010101, %esi
-	movq	%r15, %rdx
+	movq	num, %rdx
 	shrq	$3, %rdx
 	call	memset
 
-	push	%r15
+	push	num
 	fildq	(%rsp)
 	fsqrt
 	fistpq	(%rsp)
-	pop	%r13
-	# %r13 = sqrt(%r15)
+	pop	sqrt_num
+	# sqrt_num = sqrt(num)
 
 	# Eliminate all non primes
 	movq	$1, %rbx
 .elim_loop:
 	addq	$2, %rbx
-	cmpq	%r13, %rbx
+	cmpq	sqrt_num, %rbx
 	ja	.end_elim
 
 	movq	%rbx, %rax
 	shrq	$3, %rax
-	movb	(%r14, %rax), %al
+	movb	(%r15, %rax), %al
 
 	movq	%rbx, %rdx
 	andb	$0b111, %dl
@@ -105,12 +127,12 @@ _start:
 	addq	$2, %r8
 	movq	%r8, %rax
 	mulq	%rbx
-	cmpq	%r15, %rax
+	cmpq	num, %rax
 	ja	.end_inner
 
 	movq	%rax, %rdx
 	shrq	$3, %rdx
-	movb	(%r14, %rdx), %r10b
+	movb	(%r15, %rdx), %r10b
 
 	movq	%rax, %r9
 	andb	$0b111, %r9b
@@ -124,7 +146,7 @@ _start:
 	# %r11b = ~(1 << (7 - %rax % 8))
 
 	andb	%r11b, %r10b
-	movb	%r10b, (%r14, %rdx)
+	movb	%r10b, (%r15, %rdx)
 
 	jmp	.inner_loop
 .end_inner:
@@ -143,12 +165,12 @@ _start:
 	movq	$1, %rbx
 .print_loop:
 	addq	$2, %rbx
-	cmpq	%r15, %rbx
+	cmpq	num, %rbx
 	ja	.end_print
 
 	movq	%rbx, %rax
 	shrq	$3, %rax
-	movb	(%r14, %rax), %al
+	movb	(%r15, %rax), %al
 
 	movq	%rbx, %rdx
 	andb	$0b111, %dl
@@ -198,8 +220,6 @@ _start:
 	jmp	.print_loop
 .end_print:
 
-	movq	%r14, %rdi
-	call	free
 
 .finish:
 	movq	stdout, %rdi
