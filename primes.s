@@ -222,14 +222,16 @@ _start:
 .end_elim:
 
 	/* Now that all the bits corresponding to primes are set to 1,
-	   and the others are set to 0, we can start to print!
+	   and the others are set to 0, we can start to fill the buffer!
 
-	   Print "2\n" here, because we don't print even numbers in the loop.
+	   Fill it with "2\n" here, because we don't deal with
+	   even numbers in the loop.
 	*/
-	movb	$0x32, %dil # '2'
-	call	putchar
-	movb	$0xA, %dil # '\n'
-	call	putchar
+	xorq	%r13, %r13
+	movb	$0x32, char_buf # '2'
+	incq	%r13
+	movb	$0xA, char_buf(%r13) # '\n'
+	incq	%r13
 
 	# Print the numbers
 	movq	$1, %rbx
@@ -265,7 +267,7 @@ _start:
 	addq	%r11, %r11
 	subq	%r11, %rdi
 	# %rax = %rax / 10
-	# %rdi = %rai % 10
+	# %rdi = %rax % 10
 
 	addq	$0x30, %rdi
 	push	%rdi
@@ -274,23 +276,42 @@ _start:
 	testq	%rax, %rax
 	jnz	.div_loop
 
-.putc_loop:
+	leaq	(%r13, %r12), %rax
+	cmpq	$BUF_LEN, %rax
+	ja	.empty_buf
+
+.fill_loop:
 	pop	%rdi
 	decq	%r12
-	andq	$0xFF, %rdi
-	call	putchar
+	movb	%dil, char_buf(%r13)
+	incq	%r13
 
 	testq	%r12, %r12
-	jnz	.putc_loop
+	jnz	.fill_loop
 
 	# Print '\n'
-	movb	$0xA, %dil
-	call	putchar
+	movb	$0xA, char_buf(%r13)
+	incq	%r13
 
 	jmp	.print_loop
+
+.empty_buf:
+	/* Write the buffer contents to stdout */
+	movq	$1, %rax # sys_write
+	movq	$1, %rdi # fd
+	movq	$char_buf, %rsi # buf
+	movq	%r13, %rdx # count
+	syscall
+
+	xorq	%r13, %r13
+	jmp	.fill_loop
+
 .end_print:
-	movq	stdout, %rdi
-	call	fflush
+	movq	$1, %rax # sys_write
+	movq	$1, %rdi # fd
+	movq	$char_buf, %rsi # buf
+	movq	%r13, %rdx # count
+	syscall
 
 .finish:
 	/* Exit with code 0 */
