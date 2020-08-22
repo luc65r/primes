@@ -207,7 +207,6 @@ _start:
 	andb	$0b111, %al # %al = %rax % 8
 	movb	$7, %cl
 	subb	%al, %cl # %cl = 7 - %al
-
 	movb	$1, %r11b
 	shlb	%cl, %r11b
 	notb	%r11b # %r11b = ~(1 << %cl)
@@ -233,69 +232,101 @@ _start:
 	movb	$0xA, char_buf(%r13) # '\n'
 	incq	%r13
 
-	# Print the numbers
+	/* We loop through the odds numbers and check if it is prime.
+	   If it is, we can fill the buffer with its decimal representation.
+
+	   %rbx: counter from 3 to num incremented by 2
+	*/
 	movq	$1, %rbx
 .print_loop:
 	addq	$2, %rbx
 	cmpq	num, %rbx
 	ja	.end_print
 
+	/* If the bit corresponding to the number in the counter
+	     primes[%rbx / 8] >> (7 - %rbx % 8)
+	   isn't set, we jumpt to the start of the loop (.print_loop).
+	*/
 	movq	%rbx, %rax
-	shrq	$3, %rax
-	movb	(%r15, %rax), %al
+	shrq	$3, %rax # %rax = %rbx / 8
+	movb	(%r15, %rax), %al # %al = primes[%rax]
 
 	movq	%rbx, %rdx
-	andb	$0b111, %dl
+	andb	$0b111, %dl # %dl = %rbx % 8
 	movb	$7, %cl
-	subb	%dl, %cl
-	# %cl = 7 - %rdx % 8
+	subb	%dl, %cl # %cl = 7 - %dl
 
-	shrb	%cl, %al
+	shrb	%cl, %al # %al >>= %cl
 	andb	$1, %al
 	jz	.print_loop
 
+	/* In .div_loop, we divise the number we want to print (%rax) by 10
+	   and push the reminder of the division onto the stack until
+	   the number is 0.
+	   We can't put the reminders directly in the buffer, because the
+	   digits would be reversed, so we push them onto the stack and then
+	   we pop them in the right order (first in last out).
+
+	   %rax: number to be divised repeatedly by 10
+	   %r12: number of digits there are in the stack
+	*/
 	xorq	%r12, %r12
 	movq	%rbx, %rax
 .div_loop:
-	# Divide %rax by 10
+	/* We divise %rax by 10. It is way faster to do it this weird way,
+	   beacuse real divisions take a lot of cyles.
+	   The code is taken from the gcc output.
+	   You can try to understand this here:
+	   http://ridiculousfish.com/blog/posts/labor-of-division-episode-i.html
+	   (I do not understand it).
+	*/
 	movq	%rax, %rdi
 	movabsq	$-3689348814741910323, %rdx
 	mulq	%rdx
 	shrq	$3, %rdx
 	leaq	(%rdx, %rdx, 4), %r11
-	movq	%rdx, %rax
+	movq	%rdx, %rax # %rax = %rax / 10
 	addq	%r11, %r11
-	subq	%r11, %rdi
-	# %rax = %rax / 10
-	# %rdi = %rax % 10
+	subq	%r11, %rdi # %rdi = %rax % 10
 
+	/* We add 0x30 to the reminder because the ascii code for a digit
+	   is 0x30 + digit, and we push it onto the stack.
+	*/
 	addq	$0x30, %rdi
 	push	%rdi
 	incq	%r12
 
+	/* Jump back to .div_loop if %rax isn't 0 */
 	testq	%rax, %rax
 	jnz	.div_loop
 
+	/* If we would overflow the buffer by emptying the stack to it,
+	   we write it beforehand.
+	*/
 	leaq	(%r13, %r12), %rax
 	cmpq	$BUF_LEN, %rax
-	ja	.empty_buf
+	ja	.write_buf
 
 .fill_loop:
+	/* Pop the digit from the stack, and put it in the buffer */
 	pop	%rdi
 	decq	%r12
 	movb	%dil, char_buf(%r13)
 	incq	%r13
 
+	/* Continue popping from the stack if there are still digits on it */
 	testq	%r12, %r12
 	jnz	.fill_loop
 
-	# Print '\n'
+	/* We finished putting the digits in the buffer,
+	   we can now push '\n' in it.
+	*/
 	movb	$0xA, char_buf(%r13)
 	incq	%r13
 
 	jmp	.print_loop
 
-.empty_buf:
+.write_buf:
 	/* Write the buffer contents to stdout */
 	movq	$1, %rax # sys_write
 	movq	$1, %rdi # fd
@@ -303,6 +334,7 @@ _start:
 	movq	%r13, %rdx # count
 	syscall
 
+	/* Reset the position in the buffer */
 	xorq	%r13, %r13
 	jmp	.fill_loop
 
