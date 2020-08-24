@@ -339,10 +339,21 @@ _start:
 	jmp	.fill_loop
 
 .end_print:
+	/* Write the rest of the buffer contents to stdout */
 	movq	$1, %rax # sys_write
 	movq	$1, %rdi # fd
 	movq	$char_buf, %rsi # buf
 	movq	%r13, %rdx # count
+	syscall
+
+	/* Unallocate the memory
+	   It is optional, but I think it's a good thing to do.
+	*/
+	movq	$11, %rax # sys_munmap
+	movq	primes, %rdi # addr
+	movq	num, %rsi
+	shrq	$3, %rsi
+	incq	%rsi # len = n / 8 + 1
 	syscall
 
 .finish:
