@@ -165,26 +165,36 @@ _start:
 	ja	.end_elim
 
 	/* If the bit corresponding to the number in the counter
-	     primes[%rbx / 8] >> (7 - %rbx % 8)
 	   isn't set, we jumpt to the start of the loop (.elim_loop).
 	*/
 	movq	%rbx, %rax
 	shrq	$3, %rax # %rax = %rbx / 8
-	movb	(%r15, %rax), %al # %al = primes[%rax]
 
+.if 1
+	/* Use the bit test instruction */
 	movq	%rbx, %rdx
-	andb	$0b111, %dl # %dl = %rbx % 8
-	movb	$7, %cl
-	subb	%dl, %cl # %cl = 7 - %dl
+	andw	$0b111, %dx # %dx = %rbx % 8
+	movw	$7, %cx
+	subw	%dx, %cx # %cx = 7 - %dx
 
-	shrb	%cl, %al # %al >>= %cl
-	andb	$1, %al
-	jz	.elim_loop
+	btw	%cx, (%r15, %rax)
+	jnc	.elim_loop
+.else
+	/* primes[%rbx / 8] >> (7 - %rbx % 8) */
+	movb    (%r15, %rax), %al # %al = primes[%rax]
+	movq    %rbx, %rdx
+        andb    $0b111, %dl # %dl = %rbx % 8
+        movb    $7, %cl
+        subb    %dl, %cl # %cl = 7 - %dl
+
+        shrb    %cl, %al # %al >>= %cl
+        andb    $1, %al
+        jz      .elim_loop
+.endif
 
 
 	/* The bit corresponding to %rbx is set, so we eliminate
 	   (set to 0) all multiples of %rbx.
-	     primes[%r8 * %rbx / 8] &= ~(1 << (7 - (%r8 * %rbx) % 8))
 	   We only need to eliminate odds multiples of %rbx,
 	   because we didn't set the evens to 1 in the first place.
 	     odd * odd = odd
@@ -202,17 +212,30 @@ _start:
 
 	movq	%rax, %rdx
 	shrq	$3, %rdx # %rdx = %rax / 8
-	movb	(%r15, %rdx), %r10b # %r10b = primes[%rdx]
 
-	andb	$0b111, %al # %al = %rax % 8
-	movb	$7, %cl
-	subb	%al, %cl # %cl = 7 - %al
-	movb	$1, %r11b
-	shlb	%cl, %r11b
-	notb	%r11b # %r11b = ~(1 << %cl)
+	/* These are two ways to set a particular bit to 0.
+	   The first way is way slower, despite being simpler.
+	*/
+.if 0
+	andw	$0b111, %ax # %ax = %rax % 8
+	movw	$7, %cx
+	subw	%ax, %cx # %cx = 7 - %ax
 
-	andb	%r11b, %r10b
-	movb	%r10b, (%r15, %rdx) # primes[%rdx] = %r10b & %r11b
+	btrw	%cx, (%r15, %rdx)
+.else
+	/* primes[%r8 * %rbx / 8] &= ~(1 << (7 - (%r8 * %rbx) % 8)) */
+	movb    (%r15, %rdx), %r10b # %r10b = primes[%rdx]
+
+        andb    $0b111, %al # %al = %rax % 8
+        movb    $7, %cl
+        subb    %al, %cl # %cl = 7 - %al
+        movb    $1, %r11b
+        shlb    %cl, %r11b
+        notb    %r11b # %r11b = ~(1 << %cl)
+
+        andb    %r11b, %r10b
+        movb    %r10b, (%r15, %rdx) # primes[%rdx] = %r10b & %r11b
+.endif
 
 	jmp	.inner_loop
 .end_inner:
@@ -244,21 +267,37 @@ _start:
 	ja	.end_print
 
 	/* If the bit corresponding to the number in the counter
-	     primes[%rbx / 8] >> (7 - %rbx % 8)
 	   isn't set, we jumpt to the start of the loop (.print_loop).
 	*/
 	movq	%rbx, %rax
 	shrq	$3, %rax # %rax = %rbx / 8
-	movb	(%r15, %rax), %al # %al = primes[%rax]
 
+	/* These are two different ways to check a particular bit.
+	   The second way is slightly faster somehow, despite both 
+	   ways being no different to the ones earlier.
+	*/
+.if 0
+	/* Use the bit test instruction */
 	movq	%rbx, %rdx
-	andb	$0b111, %dl # %dl = %rbx % 8
-	movb	$7, %cl
-	subb	%dl, %cl # %cl = 7 - %dl
+	andw	$0b111, %dx # %dx = %rbx % 8
+	movw	$7, %cx
+	subw	%dx, %cx # %cx = 7 - %dx
 
-	shrb	%cl, %al # %al >>= %cl
-	andb	$1, %al
-	jz	.print_loop
+	btw	%cx, (%r15, %rax)
+	jnc	.print_loop
+.else
+	/* primes[%rbx / 8] >> (7 - %rbx % 8) */
+	movb    (%r15, %rax), %al # %al = primes[%rax]
+
+        movq    %rbx, %rdx
+        andb    $0b111, %dl # %dl = %rbx % 8
+        movb    $7, %cl
+        subb    %dl, %cl # %cl = 7 - %dl
+
+        shrb    %cl, %al # %al >>= %cl
+        andb    $1, %al
+        jz      .print_loop
+.endif
 
 	/* In .div_loop, we divise the number we want to print (%rax) by 10
 	   and push the reminder of the division onto the stack until
