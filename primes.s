@@ -170,6 +170,9 @@ _start:
 	movq	%rbx, %rax
 	shrq	$3, %rax # %rax = %rbx / 8
 
+	/* These are two different ways to check a particular bit.
+	   There is no speed difference.
+	*/
 .if 1
 	/* Use the bit test instruction */
 	movq	%rbx, %rdx
