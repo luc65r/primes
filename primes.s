@@ -41,6 +41,10 @@ num_err:
 	.ascii "Please supply a valid number > 0\n"
 	.set ne_len, . - num_err
 
+alloc_err:
+	.ascii "Failed to allocate memory\n"
+	.set alle_len, . - alloc_err
+
 
 /* Uninitialized memory */
 	.bss
@@ -132,6 +136,24 @@ _start:
 	movq	$-1, %r8 # fd
 	xorq	%r9, %r9 # offset
 	syscall
+	/* Check if successful (%rax >= 0) */
+	testq	%rax, %rax
+	jns	.successful_alloc
+
+	/* Write error to stderr */
+	movq	$1, %rax # sys_write
+	movq	$2, %rdi # fd
+	movq	$alloc_err, %rsi # buf
+	movq	$alle_len, %rdx # count
+	syscall
+
+	/* Exit with code 1 */
+	movq	$60, %rax # sys_exit
+	movq	$1, %rdi # error_code
+	syscall
+
+
+.successful_alloc:
 	/* Store the address of the allocated memory in primes and %r15 */
 	movq	%rax, primes
 	movq	%rax, %r15
