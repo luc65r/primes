@@ -28,8 +28,7 @@ specific number a bit difficult, because it has to make some bitwise
 operations, but it means that the program uses 8 times less memory that if
 each number was represented by a byte.
 
-I limited the use of external functions to `strtoumax`, which I
-may replace soon.
+I didn't use any external functions.
 I used `sys_mmap` to allocate the bit array, and `sys_write` to write to
 stdout and stderr.
 

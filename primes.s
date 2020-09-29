@@ -93,16 +93,32 @@ _start:
 
 
 .argc_good:
-	/* Read the number for argv[1] with strtoumax */
+	/* Read the number for argv[1] */
 	movq	16(%rsp), %rdi # str = argv[1]
-	xorq	%rsi, %rsi # endptr = null
-	movq	$10, %rdx # base
-	call	strtoumax
+	xorq    %rax, %rax
+	xorq	%rbx, %rbx
+	movq	$10, %rcx
+.arg_loop:
+	movb	(%rdi), %bl
+	testb	%bl, %bl
+	jz	.end_arg
+	subb	$0x30, %bl
+	js	.number_bad
+	cmpb	$10, %bl
+	jnc	.number_bad
+
+	mulq	%rcx
+	addq	%rbx, %rax
+	incq	%rdi
+	jmp	.arg_loop
+.end_arg:
+
 	/* Store the result in num and jump if != 0 */
 	movq	%rax, num
 	testq	%rax, %rax
 	jnz	.number_good
 	
+.number_bad:
 	/* Write error to stderr */
 	movq	$1, %rax # sys_write
 	movq	$2, %rdi # fd

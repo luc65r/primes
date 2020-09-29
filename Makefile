@@ -1,7 +1,7 @@
 all: primes
 
 primes: primes.o
-	ld -lc -o $@ $<
+	ld -o $@ $<
 
 %.o: %.s Makefile
 	as --64 -o $@ $<
