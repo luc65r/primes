@@ -158,14 +158,23 @@ _start:
 	movq	%rax, primes
 	movq	%rax, %r15
 
-	/* Set 2, 3, 5, 7, and all odds as potential primes */
+	/* Set 2, 3, 5, and 7 as potential primes */
 	movq	primes, %rdi
 	movb	$0b00110101, (%rdi)
-	incq	%rdi # ptr = primes[1]
-	movl	$0b01010101, %esi # value
+
 	movq	num, %rdx
 	shrq	$3, %rdx # num = num / 8
-	call	memset
+
+	/* If num < 8, we can skip eliminating primes */
+	jz      .end_elim
+
+	/* Set all odds as potential primes */
+.memset_loop:
+	incq	%rdi
+	movb	$0b01010101, (%rdi)
+	decq    %rdx
+	jnz     .memset_loop
+
 
 	/* Calculate the square root of num with the FPU (rounded down) */
 	push	num
