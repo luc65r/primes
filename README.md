@@ -11,7 +11,7 @@ ouputs to stdout all primes integers up to and including the argument.
 ```
 $ make
 as --64 -o primes.o primes.s
-ld -lc -o primes primes.o
+ld -o primes primes.o
 $ ./primes 10
 2
 3
