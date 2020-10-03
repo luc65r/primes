@@ -98,10 +98,15 @@ _start:
 	xorq    %rax, %rax
 	xorq	%rbx, %rbx
 	movq	$10, %rcx
+	decq	%rdi
+	
 .arg_loop:
+	incq	%rdi
 	movb	(%rdi), %bl
 	testb	%bl, %bl
 	jz	.end_arg
+	cmpb	$0x5F, %bl
+	jz	.arg_loop
 	subb	$0x30, %bl
 	js	.number_bad
 	cmpb	$10, %bl
@@ -109,7 +114,6 @@ _start:
 
 	mulq	%rcx
 	addq	%rbx, %rax
-	incq	%rdi
 	jmp	.arg_loop
 .end_arg:
 
